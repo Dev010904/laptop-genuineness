@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Screen and Keyboard Test</title>
+<style>
+  :root { --bg: #111; --fg: #eee; --key: #2a2a2a; --hit: #2e9d4f; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 15px system-ui, sans-serif; }
+  #menu { max-width: 720px; margin: 40px auto; padding: 0 16px; }
+  #menu button { font: inherit; padding: 12px 18px; margin: 6px 6px 6px 0; cursor: pointer; border-radius: 6px; border: 1px solid #555; background: #222; color: var(--fg); }
+  #screen { position: fixed; inset: 0; display: none; cursor: none; }
+  #hint { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); padding: 6px 12px; border-radius: 4px; background: rgba(0,0,0,.6); color: #fff; font-size: 13px; transition: opacity .6s; }
+  #kb { display: none; padding: 16px; }
+  .row { display: flex; gap: 4px; margin-bottom: 4px; }
+  .k { flex: 1 0 0; min-width: 0; height: 42px; display: flex; align-items: center; justify-content: center; background: var(--key); border-radius: 4px; font-size: 12px; overflow: hidden; white-space: nowrap; }
+  .k.on { background: var(--hit); color: #fff; }
+  #last { margin: 12px 0; font-size: 18px; }
+</style>
+</head>
+<body>
+<div id="menu">
+  <h1>Screen and Keyboard Test</h1>
+  <p><b>Screen test:</b> goes full screen. <b>Click or press Space / arrow keys</b> to change colour. Esc to exit.</p>
+  <ul>
+    <li><b>White, red, green, blue:</b> look for black or coloured dots (dead or stuck pixels).</li>
+    <li><b>Black:</b> dim the room lights, look for glowing edges or corners (backlight bleed).</li>
+    <li><b>Grey:</b> look for faint ghost shapes (image retention from the store demo loop) and patchy areas.</li>
+    <li><b>Gradient:</b> should be smooth with no visible stripes.</li>
+  </ul>
+  <button id="startScreen">Start screen test</button>
+  <button id="startKb">Start keyboard test</button>
+  <p id="hz">Measuring refresh rate…</p>
+</div>
+
+<div id="screen"><div id="hint"></div></div>
+
+<div id="kb">
+  <button id="backKb" style="margin-bottom:12px">← Back</button>
+  <div id="last">Press every key. Each one turns green when it works. <span id="count"></span></div>
+  <div id="rows"></div>
+</div>
+
+<script>
+const colours = [
+  ['#ffffff', 'White: dead pixels'], ['#000000', 'Black: backlight bleed'], ['#ff0000', 'Red'],
+  ['#00ff00', 'Green'], ['#0000ff', 'Blue'], ['#808080', 'Grey 50%: image retention / patches'],
+  ['#202020', 'Dark grey: uniformity'], ['linear-gradient(90deg,#000,#fff)', 'Gradient: banding']
+];
+const screen = document.getElementById('screen'), hint = document.getElementById('hint');
+let idx = 0, hintTimer;
+function paint() {
+  screen.style.background = colours[idx][0];
+  hint.textContent = `${idx + 1}/${colours.length}  ${colours[idx][1]}  (click / Space / arrows, Esc to exit)`;
+  hint.style.opacity = 1;
+  clearTimeout(hintTimer);
+  hintTimer = setTimeout(() => hint.style.opacity = 0, 1500);
+}
+document.getElementById('startScreen').onclick = () => {
+  idx = 0; screen.style.display = 'block'; paint();
+  document.documentElement.requestFullscreen?.().catch(() => {});
+};
+screen.onclick = () => { idx = (idx + 1) % colours.length; paint(); };
+function closeScreen() {
+  screen.style.display = 'none';
+  if (document.fullscreenElement) document.exitFullscreen();
+}
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) screen.style.display = 'none'; });
+
+const layout = [
+  ['Escape','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','Delete'],
+  ['Backquote','Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7','Digit8','Digit9','Digit0','Minus','Equal','Backspace'],
+  ['Tab','KeyQ','KeyW','KeyE','KeyR','KeyT','KeyY','KeyU','KeyI','KeyO','KeyP','BracketLeft','BracketRight','Backslash'],
+  ['CapsLock','KeyA','KeyS','KeyD','KeyF','KeyG','KeyH','KeyJ','KeyK','KeyL','Semicolon','Quote','Enter'],
+  ['ShiftLeft','KeyZ','KeyX','KeyC','KeyV','KeyB','KeyN','KeyM','Comma','Period','Slash','ShiftRight'],
+  ['ControlLeft','MetaLeft','AltLeft','Space','AltRight','ControlRight','ArrowLeft','ArrowUp','ArrowDown','ArrowRight'],
+  ['NumLock','NumpadDivide','NumpadMultiply','NumpadSubtract','NumpadAdd','NumpadEnter','NumpadDecimal',
+   'Numpad0','Numpad1','Numpad2','Numpad3','Numpad4','Numpad5','Numpad6','Numpad7','Numpad8','Numpad9'],
+  ['Home','End','PageUp','PageDown','Insert','PrintScreen']
+];
+const label = c => c.replace(/^Key|^Digit/, '').replace('Numpad', 'Num ').replace('Left', ' L').replace('Right', ' R');
+const rows = document.getElementById('rows'), keys = {};
+for (const r of layout) {
+  const row = document.createElement('div'); row.className = 'row';
+  for (const code of r) {
+    const k = document.createElement('div'); k.className = 'k'; k.textContent = label(code);
+    if (code === 'Space') k.style.flexGrow = 5;
+    keys[code] = k; row.appendChild(k);
+  }
+  rows.appendChild(row);
+}
+const kb = document.getElementById('kb'), menu = document.getElementById('menu');
+const pressed = new Set();
+function updateCount() {
+  document.getElementById('count').textContent = `(${pressed.size}/${Object.keys(keys).length} tested)`;
+}
+document.getElementById('startKb').onclick = () => { menu.style.display = 'none'; kb.style.display = 'block'; updateCount(); };
+document.getElementById('backKb').onclick = () => { kb.style.display = 'none'; menu.style.display = 'block'; };
+
+document.addEventListener('keydown', e => {
+  if (screen.style.display === 'block') {
+    if (e.key === 'Escape') closeScreen();
+    else if ([' ', 'ArrowRight', 'ArrowDown', 'Enter'].includes(e.key)) { idx = (idx + 1) % colours.length; paint(); }
+    else if (['ArrowLeft', 'ArrowUp'].includes(e.key)) { idx = (idx - 1 + colours.length) % colours.length; paint(); }
+    e.preventDefault(); return;
+  }
+  if (kb.style.display === 'block') {
+    e.preventDefault();
+    if (keys[e.code]) { keys[e.code].classList.add('on'); pressed.add(e.code); updateCount(); }
+    document.getElementById('last').firstChild.textContent = `Last key: ${e.code} (${e.key})  `;
+  }
+});
+// PrintScreen only fires keyup in most browsers
+document.addEventListener('keyup', e => {
+  if (kb.style.display === 'block' && keys[e.code]) { keys[e.code].classList.add('on'); pressed.add(e.code); updateCount(); }
+});
+
+// Rough refresh-rate check: should read about 240 on battery-plugged-in, best performance mode
+let frames = 0, t0 = performance.now();
+(function tick(t) {
+  frames++;
+  if (t - t0 >= 2000) {
+    document.getElementById('hz').textContent = `Browser refresh rate ≈ ${Math.round(frames * 1000 / (t - t0))} Hz (should be about 240 when plugged in)`;
+    frames = 0; t0 = t;
+  }
+  requestAnimationFrame(tick);
+})(t0);
+</script>
+</body>
+</html>
