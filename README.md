@@ -7,7 +7,7 @@ The scripts only **read** information. Nothing on the laptop is changed.
 
 | File | What it does |
 |---|---|
-| [`check.ps1`](check.ps1) | One script that checks model and serial, CPU, RAM, GPU (with real VRAM), display, SSD health, battery health, Windows activation, crash/hardware-error history and faulty devices. It ends with an automatic **PASS / WARN / FAIL summary** and saves a report. |
+| [`check.ps1`](check.ps1) | One script that checks model and serial, CPU, RAM, GPU (with real VRAM), display (exact max refresh rate), SSD health, battery health, Windows activation, crash/hardware-error history and faulty devices. It ends with a colour-coded **SCORECARD** showing every **Result next to its Expected value** with a verdict, and saves a report. |
 | [`screen-keyboard-test.html`](screen-keyboard-test.html) | Full-screen colour test (dead pixels, backlight bleed, image retention), key-by-key keyboard test, and a refresh-rate check. |
 | [`EXTRA-COMMANDS.md`](EXTRA-COMMANDS.md) | Individual commands to run by hand, plus the CPU stress test and live GPU monitor, each explained. |
 
@@ -19,13 +19,22 @@ Works on **Windows 10 and 11** (any brand: Asus, MSI, Lenovo, HP, Dell, Acer…)
 
 The laptop only needs internet. Connect it to the store Wi-Fi or your phone's hotspot.
 
-### 1. Open PowerShell as Administrator
+Run it **as Administrator**. Without Admin the script still runs, but SSD wear/hours and some battery data will be missing.
 
-Press **Win + X**, click **Terminal (Admin)** (on older Windows: **Windows PowerShell (Admin)**), then click **Yes**.
+### Option A: one command from any PowerShell (easiest)
 
-Without Admin the script still runs, but SSD wear/hours and some battery data will be missing.
+Open any PowerShell window (Start → type `powershell` → Enter), paste this, then click **Yes** on the Windows popup:
 
-### 2. Run the check
+```powershell
+Start-Process powershell -Verb RunAs -ArgumentList '-NoExit','-ExecutionPolicy','Bypass','-Command','irm https://raw.githubusercontent.com/Dev010904/laptop-genuineness/main/check.ps1 | iex'
+```
+
+A new **Administrator** window opens, runs the full check, and stays open so you can read the scorecard.
+
+### Option B: open an Admin terminal yourself
+
+1. Press **Win + X**, click **Terminal (Admin)** (on older Windows: **Windows PowerShell (Admin)**), then click **Yes**. The window title must say **Administrator**.
+2. Paste and press Enter:
 
 ```powershell
 irm https://raw.githubusercontent.com/Dev010904/laptop-genuineness/main/check.ps1 | iex
@@ -34,6 +43,8 @@ irm https://raw.githubusercontent.com/Dev010904/laptop-genuineness/main/check.ps
 - `irm` (Invoke-RestMethod) downloads the script text from GitHub.
 - `iex` (Invoke-Expression) runs it in memory. Nothing is installed.
 - The report is saved to **Desktop\laptop-test-report\\**, and the battery report opens in the browser.
+
+Other ways to get an Admin PowerShell: Start → type `powershell` → right-click → **Run as administrator**, or **Win + R** → type `powershell` → **Ctrl + Shift + Enter**.
 
 ### 3. Open the screen and keyboard test
 
@@ -76,27 +87,68 @@ Get-Volume | Where-Object DriveType -eq Removable
 
 ## Reading the results
 
-Start with the **SUMMARY** at the bottom of the output:
+Scroll to the **SCORECARD** at the bottom. Every check is shown like this:
 
-- **FAIL**: serious problem. Don't buy, or only buy after it's fixed.
-- **WARN**: check it, and use it to negotiate the price.
-- **INFO**: worth knowing, not a fault.
-- **PASS**: nothing wrong was found by software. Now do the physical checks.
+```
+[FAIL ] Max refresh rate
+         Result  : 144 Hz
+         Expected: 240 Hz
+```
 
-Then compare each section with the laptop's **official spec sheet** (manufacturer website) and the **box / bill**:
+Rows are sorted worst first:
 
-| Section | What to check |
-|---|---|
-| **Model / Serial** | Model matches the exact model code you're paying for. **Serial** matches the sticker under the laptop, the box and the bill. A missing or generic serial ("To be filled by O.E.M.") is a FAIL: the motherboard may have been replaced. |
-| **CPU** | Exact processor name and core/thread count match the spec sheet. |
-| **RAM** | Total size and speed match. Two modules = dual channel. One module = single channel (slower graphics). |
-| **GPU** | Dedicated GPU name and **VRAM_GB** match (e.g. RTX 4060 = 8 GB). Integrated GPUs show blank VRAM because they share system RAM. |
-| **Display** | Resolution matches. **MaxRefreshRate** should match the advertised Hz. The panel's manufacture week/year tells you how old the stock is. |
-| **Storage** | `Healthy`. Wear 0–2 % on a new or demo laptop. Read/write errors 0. Size about 93 % of the advertised number (1 TB shows as about 954 GB, which is normal). |
-| **Battery** | Health 90 %+ is good. 85–90 % is WARN (negotiate). Below 85 % is FAIL. Also check the cycle count in the battery report. |
-| **Windows** | Activated = True. Extra personal user accounts mean someone has been using it. |
-| **Health history** | **WHEA hardware errors must be 0.** A few unexpected shutdowns are normal on a store unit. Blue screens and disk errors should be 0. |
-| **Devices with problems** | Should be empty. |
+| Verdict | Colour | Meaning |
+|---|---|---|
+| **FAIL** | Red | Serious problem or doesn't match the spec. Don't buy until it's explained or fixed. |
+| **WARN** | Yellow | Check it, and use it to negotiate the price. |
+| **CHECK** | Cyan | The script can't know the right answer. Compare it with the box, the bill and the spec sheet. |
+| **OK** | Green | Matches what's expected. |
+| **INFO** | Grey | Worth knowing, not a fault. |
+
+The last lines give **TOTAL** counts and an overall **VERDICT**.
+
+### Known models are compared automatically
+
+If the laptop matches a built-in **model profile**, the script compares CPU, RAM, GPU + VRAM, resolution, refresh rate, SSD size and battery capacity against that model's **exact specs**, and marks each row OK or FAIL.
+
+Currently included:
+- **MSI Crosshair 16 HX AI (D2XWFKG-067IN)**
+
+Other models get **CHECK** rows for those items, so you compare them with the spec sheet yourself. To add a model, copy the entry in `$profiles` at the top of `check.ps1`.
+
+### Expected values for every check
+
+| Check | Expected | Verdict rules |
+|---|---|---|
+| Run as Administrator | Yes | No = WARN (SSD data missing) |
+| Model | Exact model code on box + bill | CHECK (OK when a profile matches) |
+| Serial number | Same as sticker, box, bill | Missing/generic ("To be filled by O.E.M.") = **FAIL**, board replaced |
+| CPU | Spec sheet processor + thread count | Profile mismatch = FAIL |
+| RAM | Spec sheet size + speed | Profile mismatch = FAIL. Running below rated speed = WARN |
+| RAM channels | 2 modules (dual channel) | 1 module = WARN |
+| Dedicated GPU | Spec sheet GPU + VRAM (e.g. RTX 5060 = 8 GB) | Profile mismatch = FAIL |
+| Graphics drivers | All OK | "Microsoft Basic Display" or error = FAIL |
+| NVIDIA driver | nvidia-smi works | Missing = WARN |
+| Screen resolution | Spec sheet (e.g. 2560 x 1600) | Profile mismatch = FAIL |
+| Max refresh rate | Spec sheet (e.g. 240 Hz) | Profile mismatch = FAIL |
+| Current refresh rate | Same as max | Lower = INFO (change it in Settings, or plug in charger) |
+| SSD size | Spec sheet (1 TB shows ~931–954 GB) | Profile mismatch = FAIL |
+| SSD health | Healthy | Anything else = FAIL |
+| SSD wear | 0–2 % | 3–10 % = WARN, over 10 % = FAIL |
+| SSD power-on hours | New: under ~50 h | INFO (high is normal on a demo unit) |
+| SSD temperature | Under 70 °C idle | 70–80 = WARN, 80+ = FAIL |
+| SSD read/write errors | 0 | Any = FAIL |
+| Battery health | 90 %+ | 85–90 % = WARN (negotiate), under 85 % = FAIL |
+| Battery design capacity | Profile value (e.g. 90 Wh) | Off by more than 5 % = WARN (non-original battery?) |
+| Battery cycles | Under 50 for new/demo | 50–300 = WARN, 300+ = FAIL |
+| Windows activated | Yes | No = WARN |
+| User accounts | 1 | More = CHECK (someone used it) |
+| Hardware errors (WHEA) | 0 | Any = **FAIL** |
+| Blue screens | 0 | Driver codes (e.g. 0x9F) = WARN. Hardware codes (0x124, 0x7A, 0x1A) = **FAIL**. The code and its meaning are shown |
+| Unexpected shutdowns | 0–5 | More = WARN |
+| Internal disk errors | 0 | Any = FAIL. Errors from USB drives are listed separately and ignored |
+| Devices with problems | None | Any = WARN |
+| Wi-Fi, Bluetooth, webcam, speakers, mic | Present | Missing = FAIL |
 
 ### Things that can show blank (not a fault)
 
@@ -191,7 +243,7 @@ What a correct result looks like for this model:
 | RAM | 2 × 8 GB DDR5, 5600 |
 | GPU | NVIDIA GeForce RTX 5060 Laptop GPU, 8 GB + Intel graphics |
 | Display | 2560 × 1600, 240 Hz |
-| Storage | 1 TB NVMe (about 954 GB shown) |
+| Storage | 1 TB NVMe (about 931–954 GB shown) |
 | Battery | About 90,000 mWh design capacity |
 
 ---
