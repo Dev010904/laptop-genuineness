@@ -116,12 +116,12 @@ document.addEventListener('keyup', e => {
   if (kb.style.display === 'block' && keys[e.code]) { keys[e.code].classList.add('on'); pressed.add(e.code); updateCount(); }
 });
 
-// Rough refresh-rate check: should read about 240 on battery-plugged-in, best performance mode
+// Rough refresh-rate check: should match the advertised refresh rate when plugged in, in a performance mode
 let frames = 0, t0 = performance.now();
 (function tick(t) {
   frames++;
   if (t - t0 >= 2000) {
-    document.getElementById('hz').textContent = `Browser refresh rate ≈ ${Math.round(frames * 1000 / (t - t0))} Hz (should be about 240 when plugged in)`;
+    document.getElementById('hz').textContent = `Browser refresh rate ≈ ${Math.round(frames * 1000 / (t - t0))} Hz (should match the laptop's advertised refresh rate when plugged in, e.g. 144 / 165 / 240)`;
     frames = 0; t0 = t;
   }
   requestAnimationFrame(tick);
