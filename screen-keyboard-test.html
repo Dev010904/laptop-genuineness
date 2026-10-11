@@ -117,11 +117,16 @@ document.addEventListener('keyup', e => {
 });
 
 // Rough refresh-rate check: should match the advertised refresh rate when plugged in, in a performance mode
-let frames = 0, t0 = performance.now();
+// The first window after page load (and any window where the tab was hidden) is throttled, so skip it
+let frames = 0, t0 = performance.now(), warmedUp = false;
+document.addEventListener('visibilitychange', () => { frames = 0; t0 = performance.now(); warmedUp = false; });
 (function tick(t) {
   frames++;
   if (t - t0 >= 2000) {
-    document.getElementById('hz').textContent = `Browser refresh rate ≈ ${Math.round(frames * 1000 / (t - t0))} Hz (should match the laptop's advertised refresh rate when plugged in, e.g. 144 / 165 / 240)`;
+    if (warmedUp && !document.hidden) {
+      document.getElementById('hz').textContent = `Browser refresh rate ≈ ${Math.round(frames * 1000 / (t - t0))} Hz (should match the laptop's advertised refresh rate when plugged in, e.g. 144 / 165 / 240)`;
+    }
+    warmedUp = true;
     frames = 0; t0 = t;
   }
   requestAnimationFrame(tick);
